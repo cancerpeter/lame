@@ -1,0 +1,389 @@
+C51 COMPILER V9.00   ZY08_C循迹、红蚠盻障、遥控综合程序                                    01/19/2015 11:29:49 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE ZY08_C循迹、红蚠盻障、遥控综合程序
+OBJECT MODULE PLACED IN ZY08-C循迹、红外避障、遥控综合程序.OBJ
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE ZY08-C循迹、红外避障、遥控综合程序.C BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          #include <REGX52.H> //包含51单片机相关的头文件
+   2          #include <intrins.h>
+   3          sbit LeftLed=P2^0;                        //定义前方左侧指示灯端口
+   4          sbit RightLed=P0^7;                       //定义前方右侧指示灯端口
+   5          sbit FontLled=P1^7;
+   6          
+   7          sbit LeftIR=P3^5;                         //定义前方左侧红外探头端口
+   8          sbit RightIR=P3^6;                        //定义前方右侧红外探头端口
+   9          sbit FontIR=P3^7;                         //定义前方正前方红外探头端口
+  10          
+  11          sbit M1A=P0^0;                            //定义左侧电机驱动A端
+  12          sbit M1B=P0^1;                            //定义左侧电机驱动B端
+  13          
+  14          sbit M2A=P0^2;                            //定义右侧电机驱动A端
+  15          sbit M2B=P0^3;                            //定义右侧电机驱动B端
+  16          
+  17          sbit B1=P0^4;                             //定义语音识识别传感器端口
+  18          sbit SB1=P0^6;                            //定义蜂鸣器端口
+  19          sbit IRIN=P3^3;                                       //定义红外接收端口
+  20          
+  21          unsigned char code  LedShowData[]={0x03,0x9F,0x25,0x0D,0x99,  //定义数码管显示数据
+  22                                             0x49,0x41,0x1F,0x01,0x19};//0,1,2,3,4,5,6,7,8,9
+  23          unsigned char code  RecvData[]={0x19,0x46,0x15,0x43,0x44,0x40,0x0D,0x0E,0x00,0x0F};
+  24          unsigned char IRCOM[7];
+  25          static unsigned int LedFlash;                         //定义闪动频率计数变量
+  26          bit EnableLight=0;                                    //定义指示灯使能位
+  27          #define ShowPort P2                                   //定义数码管显示端口
+  28          unsigned char temp = 1;
+  29          void tingzhi()
+  30          {
+  31   1         M1A=0;                                   //将M1电机A端初始化为0
+  32   1         M1B=0;                                   //将M1电机B端初始化为0
+  33   1         M2A=0;                                   //将M2电机A端初始化为0
+  34   1         M2B=0;
+  35   1      
+  36   1      }
+  37          
+  38          void qianjin()
+  39          {
+  40   1         M1A=1;                                   
+  41   1         M1B=0;                                   
+  42   1         M2A=1;                                   
+  43   1         M2B=0;
+  44   1      }
+  45          
+  46          void houtui()
+  47          {
+  48   1         M1A=0;                                   
+  49   1         M1B=1;                                   
+  50   1         M2A=0;                                   
+  51   1         M2B=1;
+  52   1      }
+  53          
+  54          void zuozhuan()
+  55          {
+C51 COMPILER V9.00   ZY08_C循迹、红蚠盻障、遥控综合程序                                    01/19/2015 11:29:49 PAGE 2   
+
+  56   1         M1A=0;                                   
+  57   1         M1B=1;                                   
+  58   1         M2A=1;                                   
+  59   1         M2B=0;
+  60   1      }
+  61          
+  62          void youzhuan()
+  63          {
+  64   1         M1A=1;                                   
+  65   1         M1B=0;                                   
+  66   1         M2A=0;                                   
+  67   1         M2B=1;
+  68   1      }
+  69          
+  70          void Delay1ms(unsigned int i) 
+  71          { 
+  72   1      unsigned char j,k; 
+  73   1      do{ 
+  74   2        j = 10; 
+  75   2        do{ 
+  76   3         k = 50; 
+  77   3         do{ 
+  78   4          _nop_(); 
+  79   4         }while(--k);     
+  80   3        }while(--j); 
+  81   2      }while(--i); 
+  82   1      
+  83   1      } 
+  84          
+  85          void delay_nus(unsigned int i)  //延时:i>=12 ,i的最小延时单12 us
+  86          { 
+  87   1        i=i/10;
+  88   1        while(--i);
+  89   1      }   
+  90          void delay_nms(unsigned int n)  //延时n ms
+  91          { 
+  92   1        n=n+1;
+  93   1        while(--n)  
+  94   1        delay_nus(900);         //延时 1ms,同时进行补偿
+  95   1        
+  96   1      }  
+  97          
+  98          void delayms(unsigned char x)                         //0.14mS延时程序
+  99          {
+ 100   1        unsigned char i;                                    //定义临时变量
+ 101   1        while(x--)                                          //延时时间循环
+ 102   1        {
+ 103   2          for (i = 0; i<13; i++) {}                         //14mS延时
+ 104   2        }
+ 105   1      }
+ 106          
+ 107          void Delay()                                          //定义延时子程序
+ 108          { 
+ 109   1        unsigned int DelayTime=30000;                       //定义延时时间变量
+ 110   1        while(DelayTime--);                                 //开始进行延时循环
+ 111   1        return;                                             //子程序返回
+ 112   1      }
+ 113          void ControlCar(unsigned char ConType)    //定义电机控制子程序
+ 114          {
+ 115   1       
+ 116   1        tingzhi();
+ 117   1       switch(ConType)                          //判断用户设定电机形式
+C51 COMPILER V9.00   ZY08_C循迹、红蚠盻障、遥控综合程序                                    01/19/2015 11:29:49 PAGE 3   
+
+ 118   1       {
+ 119   2        case 1:  //前进                         //判断用户是否选择形式1
+ 120   2        { 
+ 121   3          //tingzhi();                                                      //进入前进之前 先停止一段时间  防止电机反向电压冲击主板 导致系统复位
+ 122   3              //Delay1ms(50);
+ 123   3              LeftLed = 0 ;
+ 124   3              qianjin();
+ 125   3          break;
+ 126   3        }
+ 127   2        case 2: //后退                          //判断用户是否选择形式2
+ 128   2        { 
+ 129   3         // tingzhi();                                                              //进入后退之前 先停止一段时间  防止电机反向电压冲击主板 导致系统复位
+ 130   3         // Delay1ms(50);
+ 131   3          LeftLed = 1 ;        
+ 132   3              houtui();                                //M2电机反转
+ 133   3          break;
+ 134   3        }
+ 135   2        case 3: //左转                          //判断用户是否选择形式3
+ 136   2        { 
+ 137   3           //tingzhi();                                                                 //进入左转之前 先停止一段时间  防止电机反向电压冲击主板 导致系统复位
+ 138   3              // Delay1ms(50); 
+ 139   3               zuozhuan();                               //M2电机正转
+ 140   3               break;
+ 141   3        }
+ 142   2        case 4: //右转                          //判断用户是否选择形式4
+ 143   2        { 
+ 144   3         // tingzhi();                                                                  //进入右转之前 先停止一段时间  防止电机反向电压冲击主板 导致系统复位
+ 145   3      //      Delay1ms(50);
+ 146   3              youzhuan();                                //M1电机正转
+ 147   3                                                //M2电机反转
+ 148   3              break;
+ 149   3        }
+ 150   2        case 8: //停止                          //判断用户是否选择形式8
+ 151   2        {
+ 152   3          tingzhi();
+ 153   3              break;                                //退出当前选择
+ 154   3        }
+ 155   2       }
+ 156   1      }
+ 157          
+ 158          void ControlCar_yaokong(unsigned char ConType)    //定义电机控制子程序  (红外遥控单独设置一个 switch  case 
+             - 语句  )
+ 159          {
+ 160   1       
+ 161   1        tingzhi();
+ 162   1       switch(ConType)                          //判断用户设定电机形式
+ 163   1       {
+ 164   2        case 1:  //前进                         //判断用户是否选择形式1
+ 165   2        { 
+ 166   3          tingzhi();                                                //进入前进之前 先停止一段时间  防止电机反向电压冲击主板 导致系统复位
+ 167   3              Delay1ms(150);
+ 168   3              LeftLed = 0 ;
+ 169   3              qianjin();
+ 170   3          break;
+ 171   3        }
+ 172   2        case 2: //后退                          //判断用户是否选择形式2
+ 173   2        { 
+ 174   3          tingzhi();                                                        //进入后退之前 先停止一段时间  防止电机反向电压冲击主板 导致系统复位
+ 175   3          Delay1ms(150);
+ 176   3          LeftLed = 1 ;        
+ 177   3              houtui();                                //M2电机反转
+ 178   3          break;
+C51 COMPILER V9.00   ZY08_C循迹、红蚠盻障、遥控综合程序                                    01/19/2015 11:29:49 PAGE 4   
+
+ 179   3        }
+ 180   2        case 3: //左转                          //判断用户是否选择形式3
+ 181   2        { 
+ 182   3           tingzhi();                                                           //进入左转之前 先停止一段时间  防止电机反向电压冲击主板 导致系统复位
+ 183   3               Delay1ms(150); 
+ 184   3               zuozhuan();                               //M2电机正转
+ 185   3               break;
+ 186   3        }
+ 187   2        case 4: //右转                          //判断用户是否选择形式4
+ 188   2        { 
+ 189   3           tingzhi();                                                           //进入右转之前 先停止一段时间  防止电机反向电压冲击主板 导致系统复位
+ 190   3               Delay1ms(150);
+ 191   3           youzhuan();                                //M1电机正转  //M2电机反转
+ 192   3               break;
+ 193   3        }
+ 194   2        case 8: //停止                          //判断用户是否选择形式8
+ 195   2        {
+ 196   3          tingzhi();
+ 197   3              break;                                //退出当前选择
+ 198   3        }
+ 199   2       }
+ 200   1      }
+ 201          void Robot_Avoidance()                   //机器人避障子程序
+ 202          {
+ 203   1      
+ 204   1         LeftLed=LeftIR;                        //前方左侧指示灯指示出前方左侧红外探头状态
+ 205   1         RightLed=RightIR;                      //前方右侧指示灯指示出前方右侧红外探头状态
+ 206   1         FontLled= FontIR; 
+ 207   1         SB1=FontIR;
+ 208   1      
+ 209   1          if(FontIR == 0)                          //如果前面避障传感器检测到障碍物
+ 210   1         {
+ 211   2            ControlCar(8);                       //停止
+ 212   2            delay_nms (300);                                     //停止300MS   防止电机反相电压冲击  导致系统复位
+ 213   2                ControlCar(2);                                           //后退  
+ 214   2                delay_nms (1000);                                        //后退1500MS  
+ 215   2                ControlCar(3);                                           //
+ 216   2                delay_nms (1800);     
+ 217   2        }
+ 218   1         else
+ 219   1         {
+ 220   2            ControlCar(1);                      //右侧没有信号时,开始向左转一定的角度
+ 221   2            delay_nms (10);
+ 222   2         }
+ 223   1          ControlCar(1);
+ 224   1      }
+ 225          //机器人循迹子程序
+ 226          void Robot_Traction()                     //机器人循迹子程序
+ 227          {
+ 228   1         LeftLed=LeftIR;                        //前方左侧指示灯指示出前方左侧红外探头状态
+ 229   1         RightLed=RightIR;                      //前方右侧指示灯指示出前方右侧红外探头状态
+ 230   1         FontLled= FontIR; 
+ 231   1         SB1=LeftIR;
+ 232   1         if(LeftIR == 0 && RightIR == 0)    //三个红外检测到黑线，就前进
+ 233   1         {
+ 234   2            ControlCar(1);                      //左侧没有信号时，开始向右转一定的角度
+ 235   2            delay_nms (10);
+ 236   2         }
+ 237   1         
+ 238   1         else if(LeftIR == 0 && RightIR == 1)
+ 239   1         {
+ 240   2            ControlCar(3);                      //右侧没有信号时,开始向左转一定的角度
+C51 COMPILER V9.00   ZY08_C循迹、红蚠盻障、遥控综合程序                                    01/19/2015 11:29:49 PAGE 5   
+
+ 241   2            delay_nms (10);
+ 242   2         }
+ 243   1      
+ 244   1         else if(LeftIR == 1 && RightIR == 0)
+ 245   1         {
+ 246   2            ControlCar(4);                      //右侧没有信号时,开始向左转一定的角度
+ 247   2            delay_nms (10);
+ 248   2         }
+ 249   1          ControlCar(8);
+ 250   1      }
+ 251          
+ 252          void main()                               //主程序入口
+ 253          {
+ 254   1        
+ 255   1        bit RunFlag=0;                          //定义小车运行标志位
+ 256   1        LedFlash=3000;                                       //对闪灯数据进行初始化
+ 257   1        //EX1=1;                                               //同意开启外部中断1
+ 258   1        IT1=1;                                               //设定外部中断1为低边缘触发类型
+ 259   1        EA=1;                                                //总中断开启
+ 260   1        ControlCar(8);                          //初始化小车运行状态
+ 261   1        while(1)                                //程序主循环
+ 262   1        {
+ 263   2                if(P3_2 == 0)
+ 264   2                {
+ 265   3                 delay_nms(10);
+ 266   3                 if(P3_2 == 0)
+ 267   3                 {
+ 268   4                        temp++;
+ 269   4                        while(!P3_2);
+ 270   4                 }
+ 271   3                }
+ 272   2                if(temp > 3)
+ 273   2                {
+ 274   3                temp = 1;
+ 275   3                }
+ 276   2                switch(temp)
+ 277   2                {
+ 278   3                      case 1: ShowPort = LedShowData[1];Robot_Traction();EX1 = 0;break;
+ 279   3                      case 2: ShowPort = LedShowData[2];Robot_Avoidance();EX1 = 0;break;
+ 280   3                      case 3: ShowPort = LedShowData[3];EX1 = 1;break;
+ 281   3                }
+ 282   2        }
+ 283   1      }
+ 284          //----------红外遥控-------------------------------------------------------------
+ 285          void IR_IN() interrupt 2 using 0                      //定义INT2外部中断函数
+ 286          {
+ 287   1        unsigned char j,k,N=0;                              //定义临时接收变量
+ 288   1         
+ 289   1        EX1 = 0;                                            //关闭外部中断,防止再有信号到达   
+ 290   1        delayms(15);                                        //延时时间，进行红外消抖
+ 291   1        if (IRIN==1)                                        //判断红外信号是否消失
+ 292   1        {  
+ 293   2           EX1 =1;                                          //外部中断开
+ 294   2               return;                                          //返回
+ 295   2        } 
+ 296   1                                 
+ 297   1        while (!IRIN)                                       //等IR变为高电平，跳过9ms的前导低电平信号。
+ 298   1        {
+ 299   2            delayms(1);                                     //延时等待
+ 300   2        }
+ 301   1      
+ 302   1        for (j=0;j<4;j++)                                   //采集红外遥控器数据
+C51 COMPILER V9.00   ZY08_C循迹、红蚠盻障、遥控综合程序                                    01/19/2015 11:29:49 PAGE 6   
+
+ 303   1        { 
+ 304   2          for (k=0;k<8;k++)                                 //分次采集8位数据
+ 305   2          {
+ 306   3             while (IRIN)                                   //等 IR 变为低电平，跳过4.5ms的前导高电平信号。
+ 307   3             {
+ 308   4               delayms(1);                                  //延时等待
+ 309   4             }
+ 310   3             
+ 311   3             while (!IRIN)                                  //等 IR 变为高电平
+ 312   3             {
+ 313   4               delayms(1);                                  //延时等待
+ 314   4             }
+ 315   3         
+ 316   3             while (IRIN)                                   //计算IR高电平时长
+ 317   3             {
+ 318   4               delayms(1);                                  //延时等待
+ 319   4               N++;                                         //计数器加加
+ 320   4               if (N>=30)                                   //判断计数器累加值
+ 321   4                   { 
+ 322   5                 EX1=1;                                     //打开外部中断功能
+ 323   5                     return;                                    //返回
+ 324   5               }                   
+ 325   4             }
+ 326   3                                             
+ 327   3            IRCOM[j]=IRCOM[j] >> 1;                         //进行数据位移操作并自动补零
+ 328   3           
+ 329   3            if (N>=8)                                       //判断数据长度 
+ 330   3            {
+ 331   4               IRCOM[j] = IRCOM[j] | 0x80;                  //数据最高位补1
+ 332   4            } 
+ 333   3            N=0;                                            //清零位数计录器
+ 334   3          }
+ 335   2        }
+ 336   1         
+ 337   1        if (IRCOM[2]!=~IRCOM[3])                            //判断地址码是否相同
+ 338   1        { 
+ 339   2           EX1=1;                                           //打开外部中断
+ 340   2           return;                                          //返回
+ 341   2        }
+ 342   1      
+ 343   1        for(j=0;j<10;j++)                                   //循环进行键码解析
+ 344   1         {
+ 345   2            if(IRCOM[2]==RecvData[j])                       //进行键位对应
+ 346   2            {
+ 347   3             // ControlCar(j);
+ 348   3                      ControlCar_yaokong(j);                               //数码管显示相应数码
+ 349   3            }
+ 350   2         } 
+ 351   1         EX1 = 1;                                           //外部中断开 
+ 352   1      } 
+ 353          //------------------------------------------------------------------------------------------------------- 
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    652    ----
+   CONSTANT SIZE    =     20    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     10       2
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =      1       1
+END OF MODULE INFORMATION.
+
+C51 COMPILER V9.00   ZY08_C循迹、红蚠盻障、遥控综合程序                                    01/19/2015 11:29:49 PAGE 7   
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
